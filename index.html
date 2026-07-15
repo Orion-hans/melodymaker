@@ -637,10 +637,14 @@
     var keyPc=typeof opts.key==='number'?((opts.key%12)+12)%12
              :(opts.key!=null&&NOTE_PC[opts.key]!=null?NOTE_PC[opts.key]
              :(parseChord(chords[0])?parseChord(chords[0]).root:0));
-    var center=prof.centerMidi+keyPc+secOctave;   // 구간별 음역 이동
-    while(center-prof.centerMidi-secOctave>5)center-=12;
+    // 스케일 근음을 키의 피치클래스로 양자화(프로필 centerMidi가 근음을 끌고 가던 결함 수정)
+    // 프로필별 음역 차이(잘린 잔여분)와 구간 음역 이동은 모두 '스케일 도수'로 환산해 조성 안에서만 이동
+    var rawCenter=prof.centerMidi+keyPc;
+    var center=keyPc+12*Math.round((rawCenter-keyPc)/12);
+    var profDegOff=Math.round((rawCenter-center)*7/12);
+    var secDegOff=Math.round(secOctave*7/12)+profDegOff;
     var firstCh=parseChord(chords[0]);
-    var isMinor=firstCh&&firstCh.minor;
+    var isMinor=opts.keyMode==='minor'?true:opts.keyMode==='major'?false:(firstCh&&firstCh.minor);
     // 조성 스케일(7음)의 반음 배열 — contour 도(계이름)를 이 스케일로 실제 음 만듦
     var SCALE = isMinor ? [0,2,3,5,7,8,10]   // 자연단음계: 근 2 b3 4 5 b6 b7
                         : [0,2,4,5,7,9,11];  // 장음계:     근 2 3 4 5 6 7
@@ -649,13 +653,26 @@
 
     function pcsAt(bar){var sym=chords[Math.floor(bar/cb)%chords.length];var ch=parseChord(sym);return ch?ch.pcs:null;}
     function clash(deg,pcs){if(!pcs)return false;var p=(((center+deg)%12)+12)%12;for(var i=0;i<pcs.length;i++)if((p-pcs[i]+12)%12===1)return true;return false;}
+    var SCALESET={};
+    for(var _si=0;_si<SCALE.length;_si++)SCALESET[SCALE[_si]]=1;
+    function inScale(off){ return SCALESET[((off%12)+12)%12]===1; }
     function safe(deg,pcs){
       if(!clash(deg,pcs))return deg;
-      var best=null,bd=99;
-      for(var i=0;i<penta.length;i++)if(!clash(penta[i],pcs)){var d=Math.abs(penta[i]-deg);if(d<bd){bd=d;best=penta[i];}}
+      // 1순위: 같은 옥타브대의 펜타토닉 비충돌 음 (deg의 옥타브를 유지해 도약 방지)
+      var oct=Math.floor(deg/12)*12, best=null, bd=99;
+      for(var i=0;i<penta.length;i++){
+        var cands=[oct+penta[i], oct+penta[i]-12, oct+penta[i]+12];
+        for(var ci=0;ci<cands.length;ci++){
+          if(!clash(cands[ci],pcs)){ var d=Math.abs(cands[ci]-deg); if(d<bd){bd=d;best=cands[ci];} }
+        }
+      }
+      if(best!=null && bd<=4)return best;
+      // 2순위: 조성 스케일 안에서 가장 가까운 비충돌 음 (반음 이탈 금지)
+      for(var st=1;st<=6;st++){
+        if(inScale(deg-st)&&!clash(deg-st,pcs))return deg-st;
+        if(inScale(deg+st)&&!clash(deg+st,pcs))return deg+st;
+      }
       if(best!=null)return best;
-      if(!clash(deg+1,pcs))return deg+1;
-      if(!clash(deg-1,pcs))return deg-1;
       return deg;
     }
 
@@ -881,13 +898,13 @@
         }
       }
       var pOff=longSec?[0,2,6,-4][pos4]:0;
-      var chroma=genre.chroma||0.08;   // 색채음(조성 밖 경과음) 확률 — 소량
+      var chroma=genre.chroma!=null?genre.chroma:0.08;   // 색채음(조성 밖 경과음) 확률 — 0도 존중
       for(var j=0;j<rhythm.length;j++){
         var cell=rhythm[j];
         var degScale=contour[j]!=null?contour[j]:0;   // 스케일 도(계이름)
         // 단순성: 큰 도약을 순차진행으로 완화(스케일 도 기준)
         if(simple>0.4 && j>0){ var prevScale=contour[j-1]!=null?contour[j-1]:0; if(Math.abs(degScale-prevScale)>3 && barRnd()<simple){ degScale=prevScale+(degScale>prevScale?1:-1); } }
-        var deg=degToSemi(degScale, SCALE);           // 조성에 맞는 실제 반음
+        var deg=degToSemi(degScale+secDegOff, SCALE); // 구간 음역 이동을 스케일 도수로 적용한 실제 반음
         // 화성 회피(조성음)
         var dg=cell.dur>=barLen*0.22?safe(deg,pcs):deg;
         var fin=(lastBar&&cell.pos>=barLen*0.7&&!useRun)?0:dg;
@@ -939,7 +956,7 @@
       if(genre.pickup>0.45&&longSec&&pos4===3&&!lastBar&&barRnd()<genre.pickup*0.6){
         var pv=Math.round(prof.velBase*0.8+barRnd()*5);
         var pd=meter.compound?0.5:0.25;
-        out.push({t:bar*barLen+barLen-pd,dur:pd,midi:center+4,vel:pv});
+        out.push({t:bar*barLen+barLen-pd,dur:pd,midi:center+SCALE[2],vel:pv});
       }
     }
     // 겹침 정리
@@ -989,6 +1006,7 @@
         var secSeed=(common.seed||1)+i*7;
         if(role==='hook'||role==='posthook') secSeed=(common.seed||1)+9901;  // 훅은 같은 시드=같은 멜로디(반복·각인)
         var notes=generate({chords:s.chords,key:s.key!=null?s.key:common.key,bars:s.bars,
+          keyMode:s.keyMode!=null?s.keyMode:common.keyMode,
           profile:s.profile||common.profile,seed:secSeed,chordBars:s.chordBars||common.chordBars,
           meter:meter,grouping:s.grouping||common.grouping,genre:s.genre||common.genre,
           sectionRole:role,hookVariant:hv});
@@ -1524,7 +1542,7 @@ function makeMelody(fresh){
     if(state.mode==='single'){
       const s=state.single;
       if(!s.chords.length){ return; }
-      notes=ME.generate({chords:s.chords,key:state.key,bars:s.bars,
+      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,bars:s.bars,
         profile:ME.SECTION_ROLES[s.role].profile,seed:state.seed,
         meter:state.meter,grouping:state.grouping,genre:state.genre,
         sectionRole:s.role});
@@ -1532,7 +1550,7 @@ function makeMelody(fresh){
     } else {
       if(!state.sections.length){ return; }
       const secs=state.sections.map(s=>({chords:s.chords,bars:s.bars,profile:ME.SECTION_ROLES[s.role].profile,role:s.role}));
-      notes=ME.generateSections(secs,{key:state.key,seed:state.seed,meter:state.meter,grouping:state.grouping,genre:state.genre});
+      notes=ME.generateSections(secs,{key:state.key,keyMode:state.keyMode,seed:state.seed,meter:state.meter,grouping:state.grouping,genre:state.genre});
       meta=`${state.sections.length}구간 · ${state.key} · ${ME.GENRES[state.genre].label}`;
     }
   }catch(e){ console.error(e); alert('생성 오류: '+e.message); return; }
