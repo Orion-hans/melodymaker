@@ -111,6 +111,8 @@
   .sechead{display:flex;align-items:center;gap:9px;margin-bottom:9px}
   .sechead .role{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap}
   .role-hook{background:#3a2740;color:var(--hot)} .role-drop{background:#3a2740;color:var(--hot)}
+  .role-buildup{background:#3a2740;color:var(--hot)} .role-dancebreak{background:#3a2740;color:var(--hot)}
+  .role-breakdown{background:#1c2f3a;color:var(--teal)}
   .role-verse{background:#1c2f3a;color:var(--teal)} .role-intro{background:#1c2f3a;color:var(--teal)}
   .role-outro{background:#1c2f3a;color:var(--teal)}
   .role-prechorus{background:#2f2a1a;color:var(--amber)}
@@ -380,7 +382,28 @@
     citypop:  { density:0.78,syncopate:0.4,  longTail:0.48,swing:0.04, restBias:0.35, pickup:0.45,motific:0.55,simple:0.42,chroma:0.06, label:'시티팝' },
     lofi:     { density:0.6, syncopate:0.3,  longTail:0.55,swing:0.1,  restBias:0.45, pickup:0.4, motific:0.5, simple:0.5, chroma:0.06, label:'로파이' },
     metal:    { density:0.95,syncopate:0.25, longTail:0.3, swing:0.0,  restBias:0.25, pickup:0.3, motific:0.5, simple:0.4, chroma:0.04, label:'메탈' },
-    disco:    { density:0.82,syncopate:0.32, longTail:0.4, swing:0.0,  restBias:0.32, pickup:0.45,motific:0.6, simple:0.45,chroma:0.05, label:'디스코' }
+    disco:    { density:0.82,syncopate:0.32, longTail:0.4, swing:0.0,  restBias:0.32, pickup:0.45,motific:0.6, simple:0.45,chroma:0.05, label:'디스코' },
+    jballad:  { density:0.6, syncopate:0.2,  longTail:0.68,swing:0.04, restBias:0.48, pickup:0.5, motific:0.4, simple:0.4, chroma:0.1,  label:'J-발라드' },
+    royalroad:{ density:0.75,syncopate:0.25, longTail:0.5, swing:0.0,  restBias:0.38, pickup:0.55,motific:0.55,simple:0.4, chroma:0.05, label:'J-팝 (왕도)' },
+    komuro:   { density:0.85,syncopate:0.3,  longTail:0.35,swing:0.0,  restBias:0.3,  pickup:0.45,motific:0.7, simple:0.5, chroma:0.04, label:'90s J-팝 댄스' },
+    animerock:{ density:0.85,syncopate:0.2,  longTail:0.4, swing:0.0,  restBias:0.28, pickup:0.45,motific:0.6, simple:0.4, chroma:0.04, label:'애니메 록' },
+    billie:   { density:0.5, syncopate:0.35, longTail:0.55,swing:0.0,  restBias:0.55, pickup:0.3, motific:0.7, simple:0.65,chroma:0.05, label:'다크 팝' },
+    ukpop:    { density:0.75,syncopate:0.2,  longTail:0.45,swing:0.0,  restBias:0.33, pickup:0.45,motific:0.6, simple:0.55,chroma:0.03, label:'브릿팝' },
+    worship:  { density:0.5, syncopate:0.08, longTail:0.75,swing:0.0,  restBias:0.5,  pickup:0.5, motific:0.55,simple:0.6, chroma:0.02, label:'워십 (CCM)' },
+    celtic:   { density:0.85,syncopate:0.15, longTail:0.4, swing:0.0,  restBias:0.28, pickup:0.6, motific:0.6, simple:0.45,chroma:0.02, label:'켈틱 포크' },
+    neosoul:  { density:0.65,syncopate:0.5,  longTail:0.5, swing:0.12, restBias:0.45, pickup:0.5, motific:0.35,simple:0.35,chroma:0.12, label:'네오소울' },
+    gospel:   { density:0.8, syncopate:0.45, longTail:0.42,swing:0.08, restBias:0.32, pickup:0.6, motific:0.45,simple:0.35,chroma:0.1,  label:'가스펠' },
+    poppunk:  { density:0.85,syncopate:0.2,  longTail:0.35,swing:0.0,  restBias:0.28, pickup:0.5, motific:0.65,simple:0.6, chroma:0.03, label:'팝 펑크' },
+    motown:   { density:0.78,syncopate:0.4,  longTail:0.42,swing:0.04, restBias:0.32, pickup:0.55,motific:0.6, simple:0.45,chroma:0.05, label:'모타운' },
+    epic:     { density:0.45,syncopate:0.05, longTail:0.85,swing:0.0,  restBias:0.55, pickup:0.2, motific:0.5, simple:0.55,chroma:0.02, label:'에픽 오케스트라' },
+    animeost: { density:0.6, syncopate:0.12, longTail:0.7, swing:0.0,  restBias:0.45, pickup:0.4, motific:0.45,simple:0.4, chroma:0.04, label:'애니메 OST' },
+    disney:   { density:0.65,syncopate:0.18, longTail:0.6, swing:0.0,  restBias:0.4,  pickup:0.55,motific:0.4, simple:0.3, chroma:0.06, label:'디즈니 뮤지컬' },
+    saguk:    { density:0.45,syncopate:0.08, longTail:0.8, swing:0.0,  restBias:0.6,  pickup:0.3, motific:0.5, simple:0.6, chroma:0.02, label:'사극 (Aeolian)' },
+    running:  { density:0.7, syncopate:0.25, longTail:0.45,swing:0.0,  restBias:0.4,  pickup:0.35,motific:0.75,simple:0.6, chroma:0.02, label:'러닝' },
+    hooksong: { density:0.6, syncopate:0.1,  longTail:0.5, swing:0.0,  restBias:0.4,  pickup:0.4, motific:0.95,simple:0.85,chroma:0.0,  label:'후크송 (교육·챈트)' },
+    hookpop:  { density:0.75,syncopate:0.35, longTail:0.4, swing:0.0,  restBias:0.35, pickup:0.45,motific:0.85,simple:0.7, chroma:0.03, label:'훅팝 (APT식)' },
+    melodichouse:{ density:0.6, syncopate:0.28, longTail:0.6, swing:0.0, restBias:0.5, pickup:0.3, motific:0.85,simple:0.6, chroma:0.04, label:'멜로딕 하우스' },
+    deephouse:{ density:0.5, syncopate:0.32, longTail:0.65,swing:0.0,  restBias:0.55, pickup:0.3, motific:0.7, simple:0.6, chroma:0.08, label:'딥 하우스' }
   };
 
   // ── 2025-26 트렌드 레이어: 장르별 × 구간별 최신 히트곡 문법 강도(0~1) ──
@@ -412,8 +435,32 @@
     lofi:     { speech:0.3,  chant:0.1,  preview:0.3,  run:0.2,  riff:0.15, loop:0.6,  hookVar:0.3 },
     country:  { speech:0.2,  chant:0.3,  preview:0.4,  run:0.5,  riff:0.15, loop:0.4,  hookVar:0.6 },
     bossa:    { speech:0.15, chant:0.15, preview:0.25, run:0.35, riff:0.1,  loop:0.4,  hookVar:0.4 },
-    waltz:    { speech:0.05, chant:0.1,  preview:0.25, run:0.4,  riff:0.05, loop:0.3,  hookVar:0.5 }
+    waltz:    { speech:0.05, chant:0.1,  preview:0.25, run:0.4,  riff:0.05, loop:0.3,  hookVar:0.5 },
+    jballad:  { speech:0.08, chant:0.05, preview:0.25, run:0.55, riff:0,    loop:0.25, hookVar:0.5 },
+    royalroad:{ speech:0.1,  chant:0.3,  preview:0.5,  run:0.8,  riff:0.15, loop:0.4,  hookVar:0.7 },
+    komuro:   { speech:0.15, chant:0.45, preview:0.55, run:0.85, riff:0.3,  loop:0.5,  hookVar:0.6 },
+    animerock:{ speech:0.05, chant:0.35, preview:0.55, run:0.8,  riff:0.55, loop:0.35, hookVar:0.6 },
+    billie:   { speech:0.85, chant:0.55, preview:0.5,  run:0.35, riff:0.2,  loop:0.6,  hookVar:0.6 },
+    ukpop:    { speech:0.1,  chant:0.5,  preview:0.45, run:0.55, riff:0.3,  loop:0.5,  hookVar:0.6 },
+    worship:  { speech:0.05, chant:0.3,  preview:0.2,  run:0.65, riff:0,    loop:0.35, hookVar:0.6 },
+    celtic:   { speech:0.05, chant:0.2,  preview:0.3,  run:0.45, riff:0.3,  loop:0.5,  hookVar:0.5 },
+    neosoul:  { speech:0.4,  chant:0.2,  preview:0.3,  run:0.4,  riff:0.1,  loop:0.45, hookVar:0.6 },
+    gospel:   { speech:0.15, chant:0.55, preview:0.3,  run:0.7,  riff:0.1,  loop:0.4,  hookVar:0.7 },
+    poppunk:  { speech:0.1,  chant:0.6,  preview:0.55, run:0.6,  riff:0.4,  loop:0.4,  hookVar:0.6 },
+    motown:   { speech:0.15, chant:0.55, preview:0.4,  run:0.5,  riff:0.2,  loop:0.45, hookVar:0.6 },
+    epic:     { speech:0,    chant:0.1,  preview:0.35, run:0.6,  riff:0.25, loop:0.3,  hookVar:0.4 },
+    animeost: { speech:0,    chant:0.05, preview:0.3,  run:0.55, riff:0.1,  loop:0.35, hookVar:0.5 },
+    disney:   { speech:0.1,  chant:0.2,  preview:0.35, run:0.7,  riff:0.05, loop:0.3,  hookVar:0.6 },
+    saguk:    { speech:0,    chant:0,    preview:0.15, run:0.25, riff:0,    loop:0.5,  hookVar:0.3 },
+    running:  { speech:0.15, chant:0.5,  preview:0.45, run:0.6,  riff:0.6,  loop:0.6,  hookVar:0.5 },
+    hooksong: { speech:0.3,  chant:0.95, preview:0.5,  run:0.3,  riff:0.1,  loop:0.7,  hookVar:0.4 },
+    hookpop:  { speech:0.35, chant:0.85, preview:0.65, run:0.8,  riff:0.35, loop:0.6,  hookVar:0.7 },
+    melodichouse:{ speech:0.05, chant:0.25, preview:0.4, run:0.65, riff:0.85, loop:0.7, hookVar:0.5 },
+    deephouse:{ speech:0.05, chant:0.15, preview:0.25, run:0.3,  riff:0.4,  loop:0.7,  hookVar:0.4 }
   };
+
+  // 다른 작곡 앱 장르 id → 멜로디 메이커 장르 별칭 (멜로디 문법이 같은 경우만)
+  var GENRE_ALIAS = { marusa:'citypop', retro:'citypop', boombap:'hiphop', global:'afrobeat', countrypop:'country' };
 
 
   // 곡 구조 역할별 음악적 성격 — 각 구간이 곡에서 하는 일에 맞춘 프로필·강도·화성 방향
@@ -428,7 +475,10 @@
     bridge:    { label:'브리지',     profile:'solo',    energy:0.7, octave:0,  density:0.75, activity:0.6,  desc:'환기 구간 — 앞과 다른 음역·윤곽으로 신선함을 준다' },
     drop:      { label:'드롭',       profile:'hook',    energy:1.0, octave:4,  density:1.15, activity:0.8,  desc:'EDM 폭발 지점 — 강렬하고 높은 훅' },
     outro:     { label:'아웃트로',   profile:'verse',   energy:0.35,octave:-4, density:0.4,  activity:0.3,  desc:'마무리 — 에너지를 내리며 성글게, 근음으로 착지' },
-    solo:      { label:'솔로',       profile:'solo',    energy:0.85,octave:2,  density:1.0,  activity:0.9,  desc:'기악 독주 — 넓은 음역, 활발하고 표현적인 프레이즈' }
+    solo:      { label:'솔로',       profile:'solo',    energy:0.85,octave:2,  density:1.0,  activity:0.9,  desc:'기악 독주 — 넓은 음역, 활발하고 표현적인 프레이즈' },
+    buildup:   { label:'빌드업',     profile:'topline', energy:0.85,octave:2,  density:0.95, activity:0.85, desc:'드롭 직전 상승 — 밀도와 음역이 계단식으로 오르며 긴장을 최고조로' },
+    breakdown: { label:'브레이크다운', profile:'verse',  energy:0.45,octave:-2, density:0.45, activity:0.3,  desc:'드롭 대비 침잠 — 성글고 낮게 가라앉아 다음 폭발을 예비' },
+    dancebreak:{ label:'댄스브레이크', profile:'hook',   energy:0.95,octave:2,  density:1.0,  activity:0.8,  desc:'기악 리프 구간 — 챈트형 짧은 조각 반복, 몸이 움직이는 훅' }
   };
 
   var PROFILES = {
@@ -562,7 +612,8 @@
     else if(typeof opts.grouping==='string'&&GROUPINGS[opts.grouping])groupSteps=GROUPINGS[opts.grouping].slice();
     else groupSteps=(meter.groups||[meter.div]).slice();
     groupSteps=fitGroups(groupSteps,meter.div);
-    var genre=GENRES[opts.genre]||GENRES.pop;
+    var genreKey=GENRE_ALIAS[opts.genre]||opts.genre;
+    var genre=GENRES[genreKey]||GENRES.pop;
     var genreBase=genre;
     // 구간 역할 특성(트렌드): 인트로는 최소·낮게, 벌스는 낮고 절제, 훅은 높고 가득
     var secRole = opts.sectionRole && SECTION_ROLES[opts.sectionRole] ? SECTION_ROLES[opts.sectionRole] : null;
@@ -571,14 +622,14 @@
     var secActivity = secRole ? secRole.activity : 0.7;
 
     // ── 트렌드 판정: 장르×구간별 최신 문법 적용 여부 (시드 결정적) ──
-    var trend = TRENDS[opts.genre] || TRENDS.pop;
+    var trend = TRENDS[genreKey] || TRENDS.pop;
     var roleKey = opts.sectionRole || '';
     var tRnd = makeRnd((opts.seed||1)*13+29);
     var useSpeech  = roleKey==='verse'     && tRnd() < trend.speech;                      // 말하듯 벌스
     var useChant   = (roleKey==='hook'||roleKey==='posthook') && tRnd() < trend.chant*(roleKey==='posthook'?1.35:1); // 캐치프레이즈 훅
     var usePreview = roleKey==='intro'     && tRnd() < trend.preview;                     // 훅 프리뷰
-    var useRun     = roleKey==='prechorus' && tRnd() < trend.run;                          // 상행 빌드 런
-    var useRiff    = roleKey==='drop'      && tRnd() < trend.riff;                         // 드롭 기악 리프
+    var useRun     = (roleKey==='prechorus'||roleKey==='buildup') && tRnd() < trend.run*(roleKey==='buildup'?1.15:1);                          // 상행 빌드 런
+    var useRiff    = (roleKey==='drop'||roleKey==='dancebreak') && tRnd() < trend.riff*(roleKey==='dancebreak'?1.3:1);                         // 드롭 기악 리프
     var useLoop    = roleKey==='outro'     && tRnd() < trend.loop;                         // 루프 아웃트로
     var hookVariant = (opts.hookVariant|0) || 0;                                           // 훅 n번째 반복(변형용)
     if(useRiff) useChant=false;
@@ -923,7 +974,7 @@
 
   var MelodyEngine={
     generate:generate, parseChord:parseChord,
-    PROFILES:PROFILES, METERS:METERS, GROUPINGS:GROUPINGS, GENRES:GENRES, SECTION_ROLES:SECTION_ROLES, METER_GROUPINGS:METER_GROUPINGS, TRENDS:TRENDS,
+    PROFILES:PROFILES, METERS:METERS, GROUPINGS:GROUPINGS, GENRES:GENRES, GENRE_ALIAS:GENRE_ALIAS, SECTION_ROLES:SECTION_ROLES, METER_GROUPINGS:METER_GROUPINGS, TRENDS:TRENDS,
     meterBarLen:function(m){return (METERS[m]||METERS['4/4']).barLen;},
     generateSections:function(sections,common){
       common=common||{};
@@ -1192,7 +1243,25 @@ function renderScoreVex(host,mel,tnc,mode){ const VF=Vex.Flow;
 /* ── 장르 그리드 ── */
 function fillGenres(){
   const sel=$('genre');
-  Object.keys(ME.GENRES).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=ME.GENRES[k].label; sel.appendChild(o); });
+  const FAMILIES=[
+    ['팝·댄스',['pop','kpop','hookpop','komuro','royalroad','ukpop','citypop','disco','motown','poppunk','billie','hooksong','running']],
+    ['일렉트로닉',['edm','house','melodichouse','deephouse','dnb','trap','lofi']],
+    ['힙합·R&B·소울',['hiphop','rnb','neosoul','funk','gospel']],
+    ['록·메탈',['rock','animerock','metal']],
+    ['발라드·서정',['ballad','jballad','worship','ambient']],
+    ['오케스트라·OST',['cinematic','epic','animeost','disney','saguk']],
+    ['재즈·라틴·월드',['jazz','bossa','latin','afrobeat','reggae']],
+    ['포크·컨트리·전통양식',['folk','celtic','country','waltz']]
+  ];
+  const listed=new Set();
+  FAMILIES.forEach(([fname,keys])=>{
+    const og=document.createElement('optgroup'); og.label=fname;
+    keys.forEach(k=>{ if(!ME.GENRES[k])return; listed.add(k);
+      const o=document.createElement('option'); o.value=k; o.textContent=ME.GENRES[k].label; og.appendChild(o); });
+    if(og.children.length) sel.appendChild(og);
+  });
+  Object.keys(ME.GENRES).forEach(k=>{ if(listed.has(k))return;
+    const o=document.createElement('option'); o.value=k; o.textContent=ME.GENRES[k].label; sel.appendChild(o); });
   sel.value=state.genre;
   sel.onchange=()=>{ state.genre=sel.value; updateHint(); autoRemake(); };
 }
@@ -1255,7 +1324,10 @@ function romanProgFor(role){
     drop:[[0,'m'],[8,''],[3,''],[10,'']],
     bridge:[[8,''],[0,'m'],[5,'m'],[10,'']],         // VI i iv VII
     outro:[[0,'m'],[8,''],[3,''],[10,'']],
-    solo:[[0,'m'],[8,''],[3,''],[10,'']]
+    solo:[[0,'m'],[8,''],[3,''],[10,'']],
+    buildup:[[8,''],[10,''],[0,'m'],[10,'']],
+    breakdown:[[0,'m'],[0,'m'],[8,''],[10,'']],
+    dancebreak:[[0,'m'],[10,''],[8,''],[10,'']]
   };
   const MAJ={
     intro:[[0,''],[0,''],[5,''],[5,'']],             // I I IV IV
@@ -1266,7 +1338,10 @@ function romanProgFor(role){
     drop:[[0,''],[7,''],[9,'m'],[5,'']],
     bridge:[[9,'m'],[5,''],[0,''],[7,'']],           // vi IV I V
     outro:[[0,''],[7,''],[9,'m'],[5,'']],
-    solo:[[0,''],[7,''],[9,'m'],[5,'']]
+    solo:[[0,''],[7,''],[9,'m'],[5,'']],
+    buildup:[[5,''],[7,''],[0,''],[7,'']],
+    breakdown:[[0,''],[0,''],[5,''],[5,'']],
+    dancebreak:[[0,''],[7,''],[5,''],[7,'']]
   };
   return (state.keyMode==='minor'?MIN:MAJ)[role]||MIN.verse;
 }
@@ -1287,7 +1362,7 @@ function defaultChordsFor(role){
   const keyPc=NP[state.key]!=null?NP[state.key]:0;
   return romanProgFor(role).map(([semi,q])=> pcName(keyPc+semi)+q );
 }
-function defaultBarsFor(role){ return {intro:4,verse:8,prechorus:4,hook:8,posthook:4,drop:16,bridge:4,outro:4,solo:8}[role]||8; }
+function defaultBarsFor(role){ return {intro:4,verse:8,prechorus:4,hook:8,posthook:4,drop:16,bridge:4,outro:4,solo:8,buildup:8,breakdown:8,dancebreak:4}[role]||8; }
 
 function onRoleClick(role){
   if(state.mode==='single'){
