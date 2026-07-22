@@ -210,6 +210,11 @@
           <option value="1">높게</option><option value="2">아주 높게</option></select></div>
       <div class="field"><label>템포</label>
         <input type="number" id="bpm" value="96" min="40" max="220" style="width:64px"></div>
+      <div class="field" id="durField" style="display:none"><label>시간(분·초)</label>
+        <span style="display:flex;gap:4px;align-items:center">
+          <input type="number" id="durMin" value="10" min="0" max="30" step="1" style="width:52px"><span class="sub">분</span>
+          <input type="number" id="durSec" value="0" min="0" max="59" step="1" style="width:52px"><span class="sub">초</span>
+        </span></div>
     </div>
     <div class="row" style="gap:10px">
       <div class="field" style="flex:1"><label>박자표</label>
@@ -710,10 +715,17 @@
       // 음 재료(도수) 변형 추첨: 기본 / 순수 펜타(정갈한 신비) / 색채 강화(인상주의적)
       var poolDegs=[0,1,2,4,5,7,8,9,11];
       var matPick=fr();
-      var poolW = matPick<0.3 ? [4,0,3,4,0,4,0,2,0]
-                : matPick<0.65 ? [3,2,3,3,2,3,2,1,1]
+      var poolW = matPick<0.4 ? [4,0,3,4,0,4,0,2,0]
+                : matPick<0.75 ? [3,2,3,3,2,3,2,1,1]
                 : [3,3,2,3,3,2,3,1,2];
+      var repStreak=0;
       function pickDeg(prev){
+        // 같은 음 에코: 28% 확률로 직전 음 반복, 반복 중이면 45%로 이어감(최대 4연속) — 반복하다 변화
+        if(prev!=null){
+          var pRep=repStreak>0?0.45:0.28;
+          if(repStreak<3 && fr()<pRep){ repStreak++; return prev; }
+          repStreak=0;
+        }
         if(prev!=null && fr()<0.62){
           var stp=[-2,-1,-1,1,1,2][Math.floor(fr()*6)];
           var idx=poolDegs.indexOf(prev);
@@ -725,7 +737,9 @@
         return 0;
       }
       var tF=0.6+fr()*1.2;                          // 첫 숨(자연 소리가 먼저 들림)
-      var prevDeg=null;
+      var prevDeg=null, prevMel=null;
+      // 동시 협화 가드: 겹치는 음은 멜로디와 3반음 이상 벌리고 단2도(1·11) 관계 금지
+      function consonantF(a,b){ var d=((a-b)%12+12)%12; return d!==1 && d!==11 && Math.abs(a-b)>=3; }
       var spreadF=Math.max(0.6, 1.6-secDensity);    // 저밀도 구간일수록 숨을 넓게
       // 음역 유랑: 성격 편향점에서 출발해 ±1옥타브를 천천히 오르내림 — 긴 곡의 저역·고역 여정
       var octDrift=regBias;
@@ -738,14 +752,42 @@
         var peakAt=Math.max(1,Math.round(nF*0.6));
         var phraseVel=velBase+Math.floor(fr()*14);
         if(octDrift<=regBias-4) phraseVel-=5;       // 저역 구절은 더 여리게(무게감)
+        // 루바토 밀당 곡선 추첨: 멀었다 당기기(accel) / 당겼다 풀기(rit) / 밀당(elastic)
+        var rubShape=fr()<0.35?0:fr()<0.62?1:2;
         for(var kF=0;kF<nF && tF<totalF-1.5;kF++){
-          var dF=pickDeg(prevDeg); prevDeg=dF;
+          var dF=pickDeg(prevDeg);
           var degF=degToSemi(dF+secDegOff+octDrift, SCALE);
+          // 페달로 아직 울리는 음들과의 근접 단2도(12반음 이내, 피치클래스 차 1·11) 회피
+          // — 다시 뽑기 → 스케일 한 도 아래 → 한 도 위 순서로 시도, 옥타브 이상 벌어진 겹침은 허용(워시에서 부드러움)
+          function grinds(mi){
+            for(var ai=outF.length-1; ai>=0 && ai>=outF.length-14; ai--){
+              var a=outF[ai];
+              if(a.t+a.dur<=tF) continue;
+              var dd=((mi-a.midi)%12+12)%12;
+              if((dd===1||dd===11) && Math.abs(mi-a.midi)<=12) return true;
+            }
+            return false;
+          }
+          if(grinds(center+degF)){
+            var dRe=pickDeg(dF);
+            var degRe=degToSemi(dRe+secDegOff+octDrift, SCALE);
+            if(!grinds(center+degRe)){ dF=dRe; degF=degRe; }
+            else {
+              var degDn=degToSemi(dF-1+secDegOff+octDrift, SCALE);
+              var degUp=degToSemi(dF+1+secDegOff+octDrift, SCALE);
+              if(!grinds(center+degDn)){ dF=dF-1; degF=degDn; }
+              else if(!grinds(center+degUp)){ dF=dF+1; degF=degUp; }
+            }
+          }
+          prevDeg=dF;
           var pcsF=pcsAt(Math.floor(tF/barLen));
           var dgF=safe(degF,pcsF);
           var lastOf=(kF===nF-1);
           // 건반은 짧게 놓고 여운은 페달이 잇는다(실제 주법) — 숨 구간에 자연 소리가 드러남
           var durF=(lastOf ? (2+fr()*1.8) : (0.9+fr()*1.3))*lenM;
+          // 길게 뻗는 음: 프레이즈 중간에도 13% 확률로 3~6박을 그대로 놓아둠(실제 앰비언트의 정지감)
+          var stretched=(!lastOf && fr()<0.13);
+          if(stretched) durF=Math.max(durF, 3+fr()*3);
           if(tF+durF>totalF+1) durF=Math.max(0.5, totalF+1-tF);
           var velF=Math.max(36,Math.min(70, phraseVel+(kF===peakAt?12:0)-Math.abs(kF-peakAt)*3+Math.floor(fr()*6-3)));
           // 왼손: 프레이즈 시작마다 낮은 근음+5도 오픈 보이싱(살짝 롤) — 페달 워시의 화성 기초
@@ -754,31 +796,47 @@
             var bassMidi=rootPc+12*Math.round((center-22-rootPc)/12);
             while(bassMidi>center-15)bassMidi-=12;
             while(bassMidi<center-29)bassMidi+=12;
-            var fifthM=bassMidi+7; if(!inScale(fifthM-center))fifthM=bassMidi+12;
+            var fifthM=bassMidi+7; if(!inScale(fifthM-center)||grinds(fifthM))fifthM=bassMidi+12;
             var bassDur=Math.min(totalF+1-tF, 4.5+fr()*3);
             outF.push({t:+tF.toFixed(3),dur:+bassDur.toFixed(3),midi:bassMidi,vel:Math.max(30,velF-10),sustain:true,phrase:true});
             outF.push({t:+(tF+0.07).toFixed(3),dur:+(bassDur*0.95).toFixed(3),midi:fifthM,vel:Math.max(28,velF-14),sustain:true});
           }
           var mT=tF+(kF===0?0.13:0);   // 프레이즈 첫 멜로디 음은 롤 끝에
-          outF.push({t:+mT.toFixed(3),dur:+durF.toFixed(3),midi:center+dgF,vel:velF,sustain:true});
+          var melMidi=center+dgF;
+          outF.push({t:+mT.toFixed(3),dur:+durF.toFixed(3),midi:melMidi,vel:velF,sustain:true});
+          prevMel=melMidi;
           // 오른손 다이어드: 멜로디 아래 3도(60%)·6도(40%)를 35% 확률로 — 피아노식 화음
           if(!lastOf && fr()<dyadP){
             var belowDeg=fr()<0.6?-2:-5;
             var dyg=safe(degToSemi(dF+belowDeg+secDegOff+octDrift, SCALE), pcsF);
-            outF.push({t:+(mT+0.03).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+dyg,vel:Math.max(28,velF-9),sustain:true});
+            if(!consonantF(center+dyg, melMidi)){
+              belowDeg=belowDeg===-2?-5:-2;   // 3도↔6도 교체 시도
+              dyg=safe(degToSemi(dF+belowDeg+secDegOff+octDrift, SCALE), pcsF);
+            }
+            if(consonantF(center+dyg, melMidi) && !grinds(center+dyg))
+              outF.push({t:+(mT+0.03).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+dyg,vel:Math.max(28,velF-9),sustain:true});
           }
           // 정점: 롤 화음(멜로디+아래 3도+아래 5도) — 45%
           if(kF===peakAt && fr()<rollP){
             var rA=safe(degToSemi(dF-2+secDegOff+octDrift,SCALE),pcsF);
             var rB=safe(degToSemi(dF-4+secDegOff+octDrift,SCALE),pcsF);
-            outF.push({t:+(mT+0.05).toFixed(3),dur:+(durF*0.95).toFixed(3),midi:center+rA,vel:Math.max(30,velF-8),sustain:true});
-            outF.push({t:+(mT+0.1).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+rB,vel:Math.max(28,velF-12),sustain:true});
+            if(consonantF(center+rA, melMidi) && !grinds(center+rA))
+              outF.push({t:+(mT+0.05).toFixed(3),dur:+(durF*0.95).toFixed(3),midi:center+rA,vel:Math.max(30,velF-8),sustain:true});
+            if(consonantF(center+rB, melMidi) && consonantF(center+rB, center+rA) && !grinds(center+rB))
+              outF.push({t:+(mT+0.1).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+rB,vel:Math.max(28,velF-12),sustain:true});
           }
           // 정점 뒤 옥타브 위 잔향 흩뿌리기 — 가끔(신비)
           if(kF===peakAt && fr()<shimP){
             outF.push({t:+(mT+0.28+fr()*0.2).toFixed(3),dur:+(durF*0.8).toFixed(3),midi:center+dgF+12,vel:Math.round(velF*0.55),sustain:true});
           }
-          if(!lastOf) tF += 0.35+fr()*1.05;         // 불규칙 루바토 간격(격자 무시)
+          if(!lastOf){
+            // 밀당 간격: 프레이즈 내 위치에 따라 멀어졌다 당겨짐(루바토 곡선)
+            var posR=nF>1?kF/(nF-1):0;
+            var rubM=rubShape===0 ? (1.6-1.1*posR)                    // 멀었다 → 당기기
+                   : rubShape===1 ? (0.6+1.2*posR)                    // 당겼다 → 풀기
+                   : (0.55+1.1*Math.abs(2*posR-1));                   // 밀당(가운데서 조임)
+            tF += (0.3+fr()*1.3)*rubM + (stretched?1.2+fr()*0.8:0);   // 뻗은 음 뒤엔 여백을 더
+          }
         }
         tF += (2.0+fr()*4.5)*spreadF*gapM;          // 프레이즈 사이 숨(성격별 배율) — 페달 여운만 남고 자연 소리가 드러남
       }
@@ -1148,7 +1206,7 @@ const $ = id => document.getElementById(id);
 
 const state = {
   accomp:false,   // 재생 시 코드 반주(드론+아르페지오) — 미리듣기 전용
-  mode:'single', genre:'pop', meter:'4/4', grouping:'균등', key:'C', keyMode:'minor', octave:0, bpm:96,
+  mode:'single', genre:'freesolo', meter:'4/4', grouping:'균등', key:'C', keyMode:'minor', octave:0, bpm:96, durMin:10, durSec:0,
   instrument:'piano',
   profile:'hook', seed:1,
   single:{ role:'hook', chords:['C','G','Am','F'], bars:16 },
@@ -1382,11 +1440,12 @@ function renderScoreVex(host,mel,tnc,mode){ const VF=Vex.Flow;
 function fillGenres(){
   const sel=$('genre');
   const FAMILIES=[
+    ['앰비언트',['freesolo','ambient']],
     ['팝·댄스',['pop','kpop','hookpop','komuro','royalroad','ukpop','citypop','disco','motown','poppunk','billie','hooksong','running']],
     ['일렉트로닉',['edm','house','melodichouse','deephouse','dnb','trap','lofi']],
     ['힙합·R&B·소울',['hiphop','rnb','neosoul','funk','gospel']],
     ['록·메탈',['rock','animerock','metal']],
-    ['발라드·서정',['ballad','jballad','worship','ambient','freesolo']],
+    ['발라드·서정',['ballad','jballad','worship']],
     ['오케스트라·OST',['cinematic','epic','animeost','disney','saguk']],
     ['재즈·라틴·월드',['jazz','bossa','latin','afrobeat','reggae']],
     ['포크·컨트리·전통양식',['folk','celtic','country','waltz']]
@@ -1408,7 +1467,18 @@ function applyGenreTempoRule(){
   const g=ME.GENRES[state.genre]||{}, bpmIn=$('bpm');
   if(g.free){ bpmIn.max=50; if(state.bpm>50){ state.bpm=46; bpmIn.value=46; } }
   else { bpmIn.max=220; }
+  // 시간(분) 필드: 앰비언트·프리 앰비언트에서만 — 이 장르들은 구조가 아니라 시간이 길이를 정한다
+  $('durField').style.display=(state.genre==='ambient'||g.free)?'':'none';
 }
+function durationDriven(){ const g=ME.GENRES[state.genre]||{}; return state.genre==='ambient'||!!g.free; }
+function onDurChange(){
+  state.durMin=Math.max(0,Math.min(30,Math.floor(+$('durMin').value||0)));
+  state.durSec=Math.max(0,Math.min(59,Math.floor(+$('durSec').value||0)));
+  if(state.durMin*60+state.durSec<30){ state.durMin=0; state.durSec=30; }   // 총 30초 하한
+  $('durMin').value=state.durMin; $('durSec').value=state.durSec;
+  autoRemake();
+}
+$('durMin').onchange=onDurChange; $('durSec').onchange=onDurChange;
 /* ── 박자표 + 박자별 그루핑 ── */
 function fillMeters(){
   const ms=$('meter');
@@ -1444,6 +1514,7 @@ function transposeAllChords(oldKey,newKey,oldMode,newMode){
 $('key').onchange=()=>{ const old=state.key; state.key=$('key').value; transposeAllChords(old,state.key,state.keyMode,state.keyMode); autoRemake(); };
 $('keyMode').onchange=()=>{ const oldM=state.keyMode; state.keyMode=$('keyMode').value; transposeAllChords(state.key,state.key,oldM,state.keyMode); autoRemake(); };
 $('octave').onchange=()=>{ state.octave=parseInt($('octave').value,10)||0; autoRemake(); };
+$('bpm').onchange=()=>{ autoRemake(); };   // 시간 주도 장르: BPM이 바뀌어도 시간은 유지(마디 자동 환산)
 
 /* ── 역할 팔레트 ── */
 function fillRoles(){
@@ -1670,7 +1741,13 @@ function makeMelody(fresh){
     if(state.mode==='single'){
       const s=state.single;
       if(!s.chords.length){ return; }
-      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,octave:state.octave,bars:s.bars,
+      let genBars=s.bars;
+      if(durationDriven()){   // 시간 주도: 마디 UI 구조는 그대로 두고 생성 길이만 시간으로 결정
+        const barLenD=ME.METERS[state.meter].barLen;
+        const totalSecD=state.durMin*60+state.durSec;
+        genBars=Math.max(1,Math.min(256,Math.round(totalSecD/60*state.bpm/barLenD)));
+      }
+      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,octave:state.octave,bars:genBars,
         profile:ME.SECTION_ROLES[s.role].profile,seed:state.seed,
         meter:state.meter,grouping:state.grouping,genre:state.genre,
         sectionRole:s.role});
