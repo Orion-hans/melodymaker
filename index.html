@@ -217,6 +217,12 @@
         </span></div>
       <div class="field" id="logicField" style="display:none"><label>로직 템포</label>
         <input type="number" id="logicBpm" value="120" min="40" max="240" style="width:64px"></div>
+      <div class="field" id="famField" style="display:none"><label>악기군</label>
+        <select id="instFam" style="width:110px">
+          <option value="piano" selected>피아노</option>
+          <option value="strings">현악 (첼로·바이올린)</option>
+          <option value="winds">관악 (플루트·목관)</option>
+          <option value="synth">신스 (패드·드론)</option></select></div>
     </div>
     <div class="row" style="gap:10px">
       <div class="field" style="flex:1"><label>박자표</label>
@@ -700,11 +706,11 @@
       // ── 시드별 성격 추첨: 매 생성이 다른 결의 연주가 되도록 ──
       // gapM 숨 배율 · phMax 프레이즈 최대 음수 · dyad/roll/shim 화음·잔향 확률 · len 음길이 배율 · reg 음역 편향(도) · vb 기본 벨로시티
       var CHARS=[
-        {gapM:1.5,  phMax:4, dyad:0.18, roll:0.3,  shim:0.15, len:1.25, reg:-1, vb:40},
-        {gapM:0.75, phMax:7, dyad:0.3,  roll:0.4,  shim:0.2,  len:0.9,  reg:0,  vb:46},
-        {gapM:1.0,  phMax:5, dyad:0.25, roll:0.35, shim:0.5,  len:0.8,  reg:3,  vb:44},
-        {gapM:1.2,  phMax:4, dyad:0.3,  roll:0.5,  shim:0.08, len:1.3,  reg:-4, vb:42},
-        {gapM:0.95, phMax:6, dyad:0.55, roll:0.65, shim:0.25, len:1.0,  reg:0,  vb:46}
+        {gapM:1.7,  phMax:3, dyad:0.12, roll:0.2,  shim:0.12, len:1.5,  reg:-1, vb:40},
+        {gapM:1.0,  phMax:5, dyad:0.2,  roll:0.28, shim:0.16, len:1.15, reg:0,  vb:44},
+        {gapM:1.25, phMax:4, dyad:0.16, roll:0.24, shim:0.4,  len:1.05, reg:3,  vb:42},
+        {gapM:1.45, phMax:3, dyad:0.2,  roll:0.34, shim:0.06, len:1.6,  reg:-4, vb:40},
+        {gapM:1.15, phMax:4, dyad:0.35, roll:0.45, shim:0.2,  len:1.25, reg:0,  vb:44}
       ];
       var chF=CHARS[Math.floor(fr()*CHARS.length)];
       var gapM=chF.gapM*(0.85+fr()*0.3);
@@ -716,10 +722,11 @@
       var velBase=chF.vb+Math.floor(fr()*6-3);
       // 음 재료(도수) 변형 추첨: 기본 / 순수 펜타(정갈한 신비) / 색채 강화(인상주의적)
       var poolDegs=[0,1,2,4,5,7,8,9,11];
+      // 탈조성 재료: 으뜸·3·5음(3화음) 강조를 걷어내고 2·6·9도 부유 색채 중심 — 중심음이 느껴지지 않게
       var matPick=fr();
-      var poolW = matPick<0.4 ? [4,0,3,4,0,4,0,2,0]
-                : matPick<0.75 ? [3,2,3,3,2,3,2,1,1]
-                : [3,3,2,3,3,2,3,1,2];
+      var poolW = matPick<0.4 ? [1,3,1,2,3,1,3,1,1]
+                : matPick<0.75 ? [2,2,2,2,2,2,2,2,2]
+                : [1,2,2,2,3,1,3,2,2];
       var repStreak=0;
       function pickDeg(prev){
         // 같은 음 에코: 28% 확률로 직전 음 반복, 반복 중이면 45%로 이어감(최대 4연속) — 반복하다 변화
@@ -738,26 +745,61 @@
         for(var wj=0;wj<poolW.length;wj++){ rw-=poolW[wj]; if(rw<=0) return poolDegs[wj]; }
         return 0;
       }
+      var famF=opts.instFam||'piano';               // 악기군: piano / strings / winds
+      var famP=famF==='piano';
+      // ── 음악적 진행 설계: 무작위 부유가 아니라 형식이 의미를 만든다 ──
+      // 1) 씨앗 모티프: 2~4개의 도수 이동 세포 — 곡 전체에서 반복·변형되는 정체성
+      var motifDel=[]; var mLen0=2+Math.floor(fr()*3);
+      for(var mi0=0;mi0<mLen0;mi0++) motifDel.push([-3,-2,-1,1,1,2,2,3][Math.floor(fr()*8)]);
+      // 2) 장(章) 구조: 3~5개 장, 장마다 앵커의 홈 도수가 이동 — 마지막 장은 첫 장으로 회귀(수미상관)
+      var chN=3+Math.floor(fr()*3);
+      var chHomes=[]; var homeSet0=[1,4,5,8,0];
+      for(var ci0=0;ci0<chN;ci0++) chHomes.push(homeSet0[Math.floor(fr()*homeSet0.length)]);
+      chHomes[chN-1]=chHomes[0];
+      // 3) 거시 아크: 도입 0 → 정점 1(62% 지점) → 소멸 0
+      function arcAt(pos){ return pos<0.62 ? pos/0.62 : Math.max(0,1-(pos-0.62)/0.38); }
+      var pendResp=null;   // 콜 앤 리스폰스: 모티프 제시 뒤 응답 예약
+      function clampD(d){ return Math.max(-3,Math.min(12,d)); }
       var tF=0.6+fr()*1.2;                          // 첫 숨(자연 소리가 먼저 들림)
       var prevDeg=null, prevMel=null;
       // 동시 협화 가드: 겹치는 음은 멜로디와 3반음 이상 벌리고 단2도(1·11) 관계 금지
       function consonantF(a,b){ var d=((a-b)%12+12)%12; return d!==1 && d!==11 && Math.abs(a-b)>=3; }
       var spreadF=Math.max(0.6, 1.6-secDensity);    // 저밀도 구간일수록 숨을 넓게
       // 음역 유랑: 성격 편향점에서 출발해 ±1옥타브를 천천히 오르내림 — 긴 곡의 저역·고역 여정
-      var octDrift=regBias;
+      var octDrift=regBias-2;   // 도입은 낮은 곳에서 시작 — 아크가 오를 여지
       while(tF < totalF-2.5){
-        var drStep=fr(); octDrift += drStep<0.3?-2:drStep<0.42?-1:drStep<0.58?0:drStep<0.7?1:2;
-        if(octDrift>regBias+7)octDrift=regBias+7; if(octDrift<regBias-7)octDrift=regBias-7;
-        if(fr()<0.18) octDrift=regBias+Math.round((octDrift-regBias)*0.4);   // 가끔 편향점으로 회귀
-        var nF=2+Math.floor(fr()*(chF.phMax-1));    // 프레이즈 2~phMax음(성격별)
-        if(fr()<0.5) nF=Math.min(nF,Math.max(3,chF.phMax-2));
+        var posA=Math.min(1,tF/totalF);
+        var arcV=arcAt(posA);
+        var chIdx=Math.min(chN-1,Math.floor(posA*chN));
+        var drStep=fr(); octDrift += drStep<0.35?-1:drStep<0.65?0:1;   // 작은 무작위 걸음
+        // 유랑이 아크를 따라가도록 비례 견인: 정점(62%)에서 높고, 마지막 12%는 가라앉으며 소멸
+        var arcTarget=regBias+(posA>0.88?-4:Math.round(-2+8*arcV));   // 도입 -2 → 정점 +6 → 소멸 -4
+        octDrift += Math.max(-2,Math.min(2,Math.round((arcTarget-octDrift)*0.5)));
+        if(octDrift>regBias+8)octDrift=regBias+8; if(octDrift<regBias-8)octDrift=regBias-8;
+        // 모티프 진술/변형(55%) 또는 자유 방랑 — 응답이 예약돼 있으면 응답 우선
+        var phraseDegs=null;
+        if(pendResp || fr()<0.55){
+          var dels=pendResp?pendResp:motifDel.slice();
+          if(!pendResp){
+            var vPick=fr();
+            if(vPick<0.25) dels=dels.map(function(x){return -x;});                       // 전위
+            else if(vPick<0.45) dels=dels.slice(0,Math.max(1,dels.length-1));            // 단편화
+          }
+          var mStart=clampD((prevDeg!=null?prevDeg:2)+Math.round(fr()*4-2));             // 이조는 시작 도수가 담당
+          phraseDegs=[mStart];
+          for(var di=0;di<dels.length;di++) phraseDegs.push(clampD(phraseDegs[di]+dels[di]));
+          pendResp=(!pendResp && fr()<0.4)?dels.map(function(x){return -x;}):null;       // 응답 예약(전위형 대화)
+        } else pendResp=null;
+        var nF=phraseDegs?phraseDegs.length:2+Math.floor(fr()*(chF.phMax-1));
+        if(!phraseDegs && fr()<0.5) nF=Math.min(nF,Math.max(3,chF.phMax-2));
         var peakAt=Math.max(1,Math.round(nF*0.6));
-        var phraseVel=velBase+Math.floor(fr()*14);
+        var texA=0.7+0.6*arcV;                       // 정점에서 화음·잔향이 풍성해짐
+        var phraseVel=velBase+Math.floor(fr()*14)+Math.round(6*arcV);
         if(octDrift<=regBias-4) phraseVel-=5;       // 저역 구절은 더 여리게(무게감)
         // 루바토 밀당 곡선 추첨: 멀었다 당기기(accel) / 당겼다 풀기(rit) / 밀당(elastic)
         var rubShape=fr()<0.35?0:fr()<0.62?1:2;
         for(var kF=0;kF<nF && tF<totalF-1.5;kF++){
-          var dF=pickDeg(prevDeg);
+          var dF=phraseDegs?phraseDegs[kF]:pickDeg(prevDeg);
           var degF=degToSemi(dF+secDegOff+octDrift, SCALE);
           // 페달로 아직 울리는 음들과의 근접 단2도(12반음 이내, 피치클래스 차 1·11) 회피
           // — 다시 뽑기 → 스케일 한 도 아래 → 한 도 위 순서로 시도, 옥타브 이상 벌어진 겹침은 허용(워시에서 부드러움)
@@ -782,33 +824,48 @@
             }
           }
           prevDeg=dF;
-          var pcsF=pcsAt(Math.floor(tF/barLen));
+          var pcsF=null;   // 자유 장르는 코드 진행을 따르지 않음(화성 리듬 제거) — 근접 단2도는 grinds가 계속 막음
           var dgF=safe(degF,pcsF);
           var lastOf=(kF===nF-1);
           // 건반은 짧게 놓고 여운은 페달이 잇는다(실제 주법) — 숨 구간에 자연 소리가 드러남
-          var durF=(lastOf ? (2+fr()*1.8) : (0.9+fr()*1.3))*lenM;
+          var durF=(lastOf ? (2.5+fr()*2.5) : (1.2+fr()*1.6))*lenM*(posA>0.88?1.3:1);   // 소멸부는 길게 늘어짐
           // 길게 뻗는 음: 프레이즈 중간에도 13% 확률로 3~6박을 그대로 놓아둠(실제 앰비언트의 정지감)
-          var stretched=(!lastOf && fr()<0.13);
+          var stretched=(!lastOf && fr()<0.2);
           if(stretched) durF=Math.max(durF, 3+fr()*3);
           if(tF+durF>totalF-1) durF=Math.max(0.5, totalF-1-tF);   // 페달 릴리즈(+1박)까지 목표 시간 안에
           var velF=Math.max(36,Math.min(70, phraseVel+(kF===peakAt?12:0)-Math.abs(kF-peakAt)*3+Math.floor(fr()*6-3)));
           // 왼손: 프레이즈 시작마다 낮은 근음+5도 오픈 보이싱(살짝 롤) — 페달 워시의 화성 기초
-          if(kF===0){
-            var rootPc=(pcsF&&pcsF.length)?pcsF[0]:(((center%12)+12)%12);
-            var bassMidi=rootPc+12*Math.round((center-22-rootPc)/12);
+          if(famP && kF===0 && (outF.length===0 || fr()<(octDrift<=regBias-3?0.5:0.72))){   // 왼손 앵커는 피아노 전용
+            // 탈조성 앵커: 으뜸 대신 2·4·5·6도를 떠돌며 놓기(으뜸 15%) — 기능화성 없이 선법적 부유
+            var aSet=[1,4,5,8];
+            var aDeg=fr()<0.7?chHomes[chIdx]:aSet[Math.floor(fr()*aSet.length)];   // 장의 홈 도수 중심 — 장소가 이동하는 진행
+            var aPc=(((center+degToSemi(aDeg,SCALE))%12)+12)%12;
+            var bassMidi=aPc+12*Math.round((center-22-aPc)/12);
             while(bassMidi>center-15)bassMidi-=12;
             while(bassMidi<center-29)bassMidi+=12;
-            var fifthM=bassMidi+7; if(!inScale(fifthM-center)||grinds(fifthM))fifthM=bassMidi+12;
             var bassDur=Math.min(totalF-1-tF, 4.5+fr()*3);
             outF.push({t:+tF.toFixed(3),dur:+bassDur.toFixed(3),midi:bassMidi,vel:Math.max(30,velF-10),sustain:true,phrase:true});
-            outF.push({t:+(tF+0.07).toFixed(3),dur:+(bassDur*0.95).toFixed(3),midi:fifthM,vel:Math.max(28,velF-14),sustain:true});
+            var satR=fr();   // 위성음: 5도 45% / 옥타브 25% / 없음 30% — 열린 채로 두기
+            if(satR<0.7){
+              var satM=satR<0.45?bassMidi+7:bassMidi+12;
+              if(!inScale(satM-center)||grinds(satM))satM=bassMidi+12;
+              if(!grinds(satM))
+                outF.push({t:+(tF+0.07).toFixed(3),dur:+(bassDur*0.95).toFixed(3),midi:satM,vel:Math.max(28,velF-14),sustain:true});
+            }
           }
+          if(famF==='synth'){ durF=Math.min(durF*1.8, totalF-1-tF); }   // 패드: 길게 겹치며 부유
           var mT=tF+(kF===0?0.13:0);   // 프레이즈 첫 멜로디 음은 롤 끝에
           var melMidi=center+dgF;
           outF.push({t:+mT.toFixed(3),dur:+durF.toFixed(3),midi:melMidi,vel:velF,sustain:true});
           prevMel=melMidi;
+          // 신스: 위 완전5도 스택 20% — 열린 공기감(조성 안·비마찰일 때만)
+          if(famF==='synth' && fr()<0.2){
+            var up5=melMidi+7;
+            if(inScale(up5-center) && !grinds(up5))
+              outF.push({t:+(mT+0.05).toFixed(3),dur:+(durF*0.95).toFixed(3),midi:up5,vel:Math.max(26,velF-8),sustain:true});
+          }
           // 오른손 다이어드: 멜로디 아래 3도(60%)·6도(40%)를 35% 확률로 — 피아노식 화음
-          if(!lastOf && fr()<dyadP){
+          if(famP && !lastOf && fr()<dyadP*texA){   // 다이어드는 피아노 전용 — 아크 따라 풍성해짐
             var belowDeg=fr()<0.6?-2:-5;
             var dyg=safe(degToSemi(dF+belowDeg+secDegOff+octDrift, SCALE), pcsF);
             if(!consonantF(center+dyg, melMidi)){
@@ -819,7 +876,7 @@
               outF.push({t:+(mT+0.03).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+dyg,vel:Math.max(28,velF-9),sustain:true});
           }
           // 정점: 롤 화음(멜로디+아래 3도+아래 5도) — 45%
-          if(kF===peakAt && fr()<rollP){
+          if(famP && kF===peakAt && fr()<rollP*texA){   // 롤 화음은 피아노 전용 — 아크 따라
             var rA=safe(degToSemi(dF-2+secDegOff+octDrift,SCALE),pcsF);
             var rB=safe(degToSemi(dF-4+secDegOff+octDrift,SCALE),pcsF);
             if(consonantF(center+rA, melMidi) && !grinds(center+rA))
@@ -828,7 +885,7 @@
               outF.push({t:+(mT+0.1).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+rB,vel:Math.max(28,velF-12),sustain:true});
           }
           // 정점 뒤 옥타브 위 잔향 흩뿌리기 — 가끔(신비)
-          if(kF===peakAt && fr()<shimP){
+          if(famP && kF===peakAt && fr()<shimP){   // 옥타브 잔향은 피아노 전용
             outF.push({t:+(mT+0.28+fr()*0.2).toFixed(3),dur:+(durF*0.8).toFixed(3),midi:center+dgF+12,vel:Math.round(velF*0.55),sustain:true});
           }
           if(!lastOf){
@@ -837,22 +894,89 @@
             var rubM=rubShape===0 ? (1.6-1.1*posR)                    // 멀었다 → 당기기
                    : rubShape===1 ? (0.6+1.2*posR)                    // 당겼다 → 풀기
                    : (0.55+1.1*Math.abs(2*posR-1));                   // 밀당(가운데서 조임)
-            tF += (0.3+fr()*1.3)*rubM + (stretched?1.2+fr()*0.8:0);   // 뻗은 음 뒤엔 여백을 더
+            tF += (0.5+fr()*1.7)*rubM + (stretched?1.5+fr()*1.0:0);   // 뻗은 음 뒤엔 여백을 더
           }
         }
-        tF += (2.0+fr()*4.5)*spreadF*gapM;          // 프레이즈 사이 숨(성격별 배율) — 페달 여운만 남고 자연 소리가 드러남
+        tF += (3.0+fr()*6.0)*spreadF*gapM*(1.3-0.55*arcV);   // 숨도 아크를 따름: 도입·소멸은 넓고 정점은 촘촘
       }
       // 종지: 으뜸음(60%) 또는 5음, 길고 여리게
-      var endDegF=fr()<0.6?0:4;
+      // 미해결 종지: 카덴차 없이 2·6·9도(가끔 5음) 위에서 부유하며 사라짐 — 닫지 않고 열어 둠
+      var endDegF=fr()<0.5?chHomes[0]:[1,5,8][Math.floor(fr()*3)];   // 절반은 첫 장의 홈으로 회귀 — 수미상관
       var endT=Math.min(tF,totalF-3);
       var endDur=Math.min(5, totalF-1-endT);
-      // 종지 보이싱: 저역 으뜸 근음 + 5도 + 으뜸/5음(롤) — 열고 닫는 토닉 착지
-      var endBass=center-24;
-      outF.push({t:+endT.toFixed(3),dur:+endDur.toFixed(3),midi:endBass,vel:40,sustain:true,phrase:true});
-      outF.push({t:+(endT+0.08).toFixed(3),dur:+(endDur*0.95).toFixed(3),midi:endBass+7,vel:36,sustain:true});
-      outF.push({t:+(endT+0.16).toFixed(3),dur:+(endDur*0.9).toFixed(3),
-        midi:center+degToSemi(endDegF+secDegOff,SCALE),vel:44,sustain:true});
+      if(famP){
+        var endBass=center-24+degToSemi(fr()<0.5?4:5,SCALE);   // 저역도 5·6도 — 으뜸 회귀 없음
+        outF.push({t:+endT.toFixed(3),dur:+endDur.toFixed(3),midi:endBass,vel:38,sustain:true,phrase:true});
+        outF.push({t:+(endT+0.16).toFixed(3),dur:+(endDur*0.9).toFixed(3),
+          midi:center+degToSemi(endDegF+secDegOff,SCALE),vel:42,sustain:true});
+      } else {
+        // 현·관: 마지막 숨/활 하나로 여리게 사라짐
+        outF.push({t:+endT.toFixed(3),dur:+endDur.toFixed(3),
+          midi:center+degToSemi(endDegF+secDegOff,SCALE),vel:40,sustain:true,phrase:true});
+      }
       outF.sort(function(a,b){return a.t-b.t||a.midi-b.midi;});
+      // ── 악기군 후처리 ──
+      if(famF==='strings'){
+        // 레가토: 활이 다음 음까지 이어짐(0.35박 겹침), 프레이즈 끝 긴 활은 유지
+        for(var si2=0;si2<outF.length-1;si2++){
+          var gN=outF[si2+1].t-outF[si2].t;
+          if(gN>0.01 && gN<=2.0) outF[si2].dur=Math.min(6, totalF-1-outF[si2].t, gN+0.35);
+        }
+        // 더블스톱: 긴 활(2.5박 이상)의 15%에 아래 완전5도 — 조성 안이고 갈리지 않을 때만
+        var dsAdd=[];
+        for(var si3=0;si3<outF.length;si3++){
+          var nS=outF[si3];
+          if(nS.dur>=2.5 && fr()<0.15){
+            var low=nS.midi-7;
+            if(inScale(low-center)) dsAdd.push({t:nS.t,dur:+(nS.dur*0.95).toFixed(3),midi:low,vel:Math.max(28,nS.vel-8),sustain:true});
+          }
+        }
+        outF=outF.concat(dsAdd);
+        outF.sort(function(a,b){return a.t-b.t||a.midi-b.midi;});
+      }
+      if(famF==='synth'){
+        // 드론 레이어: 저역에서 2·4·5·6도(으뜸 15%)가 8~16박씩 겹치며 크로스페이드 — 신스 앰비언트의 바닥
+        var dT=1.0+fr()*2.0;
+        while(dT<totalF-6){
+          var dCh=Math.min(chN-1,Math.floor(Math.min(1,dT/totalF)*chN));
+          var dDeg=fr()<0.7?chHomes[dCh]:[1,4,5,8][Math.floor(fr()*4)];
+          var dPc=(((center+degToSemi(dDeg,SCALE))%12)+12)%12;
+          var dM=dPc+12*Math.round((center-24-dPc)/12);
+          while(dM>center-14)dM-=12;
+          while(dM<center-31)dM+=12;
+          var dDur=Math.min(8+fr()*8, totalF-1-dT);
+          outF.push({t:+dT.toFixed(3),dur:+dDur.toFixed(3),midi:dM,vel:34+Math.floor(fr()*6),sustain:true});
+          dT+=dDur*(0.7+fr()*0.5);   // 앞 드론이 끝나기 전에 다음이 들어와 크로스페이드
+        }
+        outF.sort(function(a,b){return a.t-b.t||a.midi-b.midi;});
+      }
+      if(famF==='winds'){
+        // 엄격한 단선율: 다음 음 시작 0.08박 전에 반드시 떼기(한 호흡 한 줄)
+        for(var wi2=0;wi2<outF.length-1;wi2++){
+          var gW=outF[wi2+1].t-outF[wi2].t;
+          if(gW>0.01) outF[wi2].dur=Math.min(outF[wi2].dur, Math.max(0.3, gW-0.08));
+        }
+        // 꾸밈음: 20% 음 앞에 짧은 이웃음(위/아래 스케일 음) — 플루트 관용구
+        var grAdd=[];
+        for(var wi3=1;wi3<outF.length;wi3++){
+          var nW=outF[wi3];
+          if(fr()<0.2 && nW.t>=0.3){
+            var gOff=null;
+            var tries=[2,-2,1,-1];
+            for(var ti=0;ti<4;ti++){ if(inScale(nW.midi+tries[ti]-center)){ gOff=tries[ti]; break; } }
+            if(gOff!=null){
+              var gT=nW.t-0.18;
+              var prevW=outF[wi3-1];
+              if(gT>prevW.t+0.05){
+                if(prevW.t+prevW.dur>gT-0.05) prevW.dur=Math.max(0.2, gT-0.05-prevW.t);
+                grAdd.push({t:+gT.toFixed(3),dur:0.14,midi:nW.midi+gOff,vel:Math.max(26,nW.vel-12),sustain:true});
+              }
+            }
+          }
+        }
+        outF=outF.concat(grAdd);
+        outF.sort(function(a,b){return a.t-b.t||a.midi-b.midi;});
+      }
       return outF;
     }
 
@@ -1186,7 +1310,7 @@
         var secSeed=(common.seed||1)+i*7;
         if(role==='hook'||role==='posthook') secSeed=(common.seed||1)+9901;  // 훅은 같은 시드=같은 멜로디(반복·각인)
         var notes=generate({chords:s.chords,key:s.key!=null?s.key:common.key,bars:s.bars,
-          keyMode:s.keyMode!=null?s.keyMode:common.keyMode,octave:s.octave!=null?s.octave:common.octave,
+          keyMode:s.keyMode!=null?s.keyMode:common.keyMode,octave:s.octave!=null?s.octave:common.octave,instFam:s.instFam!=null?s.instFam:common.instFam,
           profile:s.profile||common.profile,seed:secSeed,chordBars:s.chordBars||common.chordBars,
           meter:meter,grouping:s.grouping||common.grouping,genre:s.genre||common.genre,
           sectionRole:role,hookVariant:hv});
@@ -1208,7 +1332,7 @@ const $ = id => document.getElementById(id);
 
 const state = {
   accomp:false,   // 재생 시 코드 반주(드론+아르페지오) — 미리듣기 전용
-  mode:'single', genre:'freesolo', meter:'4/4', grouping:'균등', key:'C', keyMode:'minor', octave:0, bpm:96, durMin:10, durSec:0, logicBpm:120,
+  mode:'single', genre:'freesolo', meter:'4/4', grouping:'균등', key:'C', keyMode:'minor', octave:0, bpm:96, durMin:10, durSec:0, logicBpm:120, instFam:'piano',
   instrument:'piano',
   profile:'hook', seed:1,
   single:{ role:'hook', chords:['C','G','Am','F'], bars:16 },
@@ -1473,8 +1597,10 @@ function applyGenreTempoRule(){
   const durVis=(state.genre==='ambient'||g.free)?'':'none';
   $('durField').style.display=durVis;
   $('logicField').style.display=durVis;   // 로직 템포도 같은 조건 — 추출 틱을 이 템포 기준으로 재환산
+  $('famField').style.display=g.free?'':'none';   // 악기군은 자유 연주 장르에서만
 }
 $('logicBpm').onchange=()=>{ state.logicBpm=Math.max(40,Math.min(240,Math.round(+$('logicBpm').value||120))); $('logicBpm').value=state.logicBpm; };
+$('instFam').onchange=()=>{ state.instFam=$('instFam').value; autoRemake(); };
 function durationDriven(){ const g=ME.GENRES[state.genre]||{}; return state.genre==='ambient'||!!g.free; }
 function onDurChange(){
   state.durMin=Math.max(0,Math.min(30,Math.floor(+$('durMin').value||0)));
@@ -1760,7 +1886,7 @@ function makeMelody(fresh){
         exactBeats=totalSecD/60*state.bpm;   // 자유 장르는 정확한 박 예산으로(반올림 오차 제거)
         genBars=Math.max(1,Math.min(256,Math.round(exactBeats/barLenD)));
       }
-      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,octave:state.octave,bars:genBars,exactBeats:exactBeats,
+      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,octave:state.octave,bars:genBars,exactBeats:exactBeats,instFam:state.instFam,
         profile:ME.SECTION_ROLES[s.role].profile,seed:state.seed,
         meter:state.meter,grouping:state.grouping,genre:state.genre,
         sectionRole:s.role});
@@ -1768,7 +1894,7 @@ function makeMelody(fresh){
     } else {
       if(!state.sections.length){ return; }
       const secs=state.sections.map(s=>({chords:s.chords,bars:s.bars,profile:ME.SECTION_ROLES[s.role].profile,role:s.role}));
-      notes=ME.generateSections(secs,{key:state.key,keyMode:state.keyMode,octave:state.octave,seed:state.seed,meter:state.meter,grouping:state.grouping,genre:state.genre});
+      notes=ME.generateSections(secs,{key:state.key,keyMode:state.keyMode,octave:state.octave,instFam:state.instFam,seed:state.seed,meter:state.meter,grouping:state.grouping,genre:state.genre});
       meta=`${state.sections.length}구간 · ${state.key} · ${ME.GENRES[state.genre].label}`;
     }
   }catch(e){ console.error(e); alert('생성 오류: '+e.message); return; }
@@ -1954,7 +2080,31 @@ function buildMidi(){
   const evs=[];notes.forEach(n=>{evs.push({tick:Math.round(n.t*PPQ),t:0x90,m:n.midi,v:n.vel});evs.push({tick:Math.round((n.t+n.dur)*PPQ),t:0x80,m:n.midi,v:0});});
   // 페달 장르: CC64 서스테인 — 시작 프레스, 프레이즈 경계(무음 ≥1박)마다 리프트→재프레스, 끝에서 릴리즈
   const gG=ME.GENRES[state.genre]||{};
-  if(gG.pedal){
+  const famX=(gG.free?(state.instFam||'piano'):'piano');
+  if(gG.free && famX!=='piano'){
+    // 현·관: 호흡·활 스웰(74→98→78) / 신스: 느린 어택의 깊은 패드 스웰(36→96→70)
+    const sw=famX==='synth'?[36,96,70]:[74,98,78];
+    notes.forEach(n=>{
+      if(n.dur>=2){
+        const t0=Math.round(n.t*PPQ), t1=Math.round((n.t+n.dur*0.45)*PPQ), t2=Math.round((n.t+n.dur*0.92)*PPQ);
+        evs.push({tick:t0,t:0xB0,m:11,v:sw[0]});
+        evs.push({tick:t1,t:0xB0,m:11,v:sw[1]});
+        evs.push({tick:t2,t:0xB0,m:11,v:sw[2]});
+      }
+    });
+    if(famX==='synth'){
+      // CC1 슬로우 LFO: 8박 주기 삼각파(45↔85) — 필터·모드 움직임을 미디에 기록
+      let lastEndB=0; notes.forEach(n=>{ if(n.t+n.dur>lastEndB)lastEndB=n.t+n.dur; });
+      for(let tb=0; tb<=lastEndB; tb+=2){
+        const ph=(tb%8)/8;
+        const v=Math.round(45+40*(ph<0.5?ph*2:(1-ph)*2));
+        evs.push({tick:Math.round(tb*PPQ),t:0xB0,m:1,v:v});
+      }
+    }
+    // 파일 길이를 목표 시간에 정확히: 종단 CC11 페이드
+    evs.push({tick:Math.round((state.durMin*60+state.durSec)/60*state.bpm*PPQ),t:0xB0,m:11,v:0});
+  }
+  if(gG.pedal && famX==='piano'){
     const firstTick=Math.max(0,Math.round(notes[0].t*PPQ)-10);
     let lastEnd=0; notes.forEach(n=>{ if(n.t+n.dur>lastEnd)lastEnd=n.t+n.dur; });
     evs.push({tick:firstTick,t:0xB0,m:64,v:127});
