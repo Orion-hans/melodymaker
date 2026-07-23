@@ -215,6 +215,8 @@
           <input type="number" id="durMin" value="10" min="0" max="30" step="1" style="width:52px"><span class="sub">분</span>
           <input type="number" id="durSec" value="0" min="0" max="59" step="1" style="width:52px"><span class="sub">초</span>
         </span></div>
+      <div class="field" id="logicField" style="display:none"><label>로직 템포</label>
+        <input type="number" id="logicBpm" value="120" min="40" max="240" style="width:64px"></div>
     </div>
     <div class="row" style="gap:10px">
       <div class="field" style="flex:1"><label>박자표</label>
@@ -693,7 +695,7 @@
     // 리듬 엔진을 완전히 우회: 프레이즈(2~6음) + 긴 여운 + 넓은 숨. 페달이 음 사이를 잇는 전제.
     if(genre.free){
       var fr=makeRnd((opts.seed||1)*17+5);
-      var totalF=bars*barLen;
+      var totalF=(opts.exactBeats>0)?opts.exactBeats:bars*barLen;   // 시간 주도면 정확한 박 예산 사용
       var outF=[];
       // ── 시드별 성격 추첨: 매 생성이 다른 결의 연주가 되도록 ──
       // gapM 숨 배율 · phMax 프레이즈 최대 음수 · dyad/roll/shim 화음·잔향 확률 · len 음길이 배율 · reg 음역 편향(도) · vb 기본 벨로시티
@@ -788,7 +790,7 @@
           // 길게 뻗는 음: 프레이즈 중간에도 13% 확률로 3~6박을 그대로 놓아둠(실제 앰비언트의 정지감)
           var stretched=(!lastOf && fr()<0.13);
           if(stretched) durF=Math.max(durF, 3+fr()*3);
-          if(tF+durF>totalF+1) durF=Math.max(0.5, totalF+1-tF);
+          if(tF+durF>totalF-1) durF=Math.max(0.5, totalF-1-tF);   // 페달 릴리즈(+1박)까지 목표 시간 안에
           var velF=Math.max(36,Math.min(70, phraseVel+(kF===peakAt?12:0)-Math.abs(kF-peakAt)*3+Math.floor(fr()*6-3)));
           // 왼손: 프레이즈 시작마다 낮은 근음+5도 오픈 보이싱(살짝 롤) — 페달 워시의 화성 기초
           if(kF===0){
@@ -797,7 +799,7 @@
             while(bassMidi>center-15)bassMidi-=12;
             while(bassMidi<center-29)bassMidi+=12;
             var fifthM=bassMidi+7; if(!inScale(fifthM-center)||grinds(fifthM))fifthM=bassMidi+12;
-            var bassDur=Math.min(totalF+1-tF, 4.5+fr()*3);
+            var bassDur=Math.min(totalF-1-tF, 4.5+fr()*3);
             outF.push({t:+tF.toFixed(3),dur:+bassDur.toFixed(3),midi:bassMidi,vel:Math.max(30,velF-10),sustain:true,phrase:true});
             outF.push({t:+(tF+0.07).toFixed(3),dur:+(bassDur*0.95).toFixed(3),midi:fifthM,vel:Math.max(28,velF-14),sustain:true});
           }
@@ -843,7 +845,7 @@
       // 종지: 으뜸음(60%) 또는 5음, 길고 여리게
       var endDegF=fr()<0.6?0:4;
       var endT=Math.min(tF,totalF-3);
-      var endDur=Math.min(5, totalF+1-endT);
+      var endDur=Math.min(5, totalF-1-endT);
       // 종지 보이싱: 저역 으뜸 근음 + 5도 + 으뜸/5음(롤) — 열고 닫는 토닉 착지
       var endBass=center-24;
       outF.push({t:+endT.toFixed(3),dur:+endDur.toFixed(3),midi:endBass,vel:40,sustain:true,phrase:true});
@@ -1206,7 +1208,7 @@ const $ = id => document.getElementById(id);
 
 const state = {
   accomp:false,   // 재생 시 코드 반주(드론+아르페지오) — 미리듣기 전용
-  mode:'single', genre:'freesolo', meter:'4/4', grouping:'균등', key:'C', keyMode:'minor', octave:0, bpm:96, durMin:10, durSec:0,
+  mode:'single', genre:'freesolo', meter:'4/4', grouping:'균등', key:'C', keyMode:'minor', octave:0, bpm:96, durMin:10, durSec:0, logicBpm:120,
   instrument:'piano',
   profile:'hook', seed:1,
   single:{ role:'hook', chords:['C','G','Am','F'], bars:16 },
@@ -1468,8 +1470,11 @@ function applyGenreTempoRule(){
   if(g.free){ bpmIn.max=50; if(state.bpm>50){ state.bpm=46; bpmIn.value=46; } }
   else { bpmIn.max=220; }
   // 시간(분) 필드: 앰비언트·프리 앰비언트에서만 — 이 장르들은 구조가 아니라 시간이 길이를 정한다
-  $('durField').style.display=(state.genre==='ambient'||g.free)?'':'none';
+  const durVis=(state.genre==='ambient'||g.free)?'':'none';
+  $('durField').style.display=durVis;
+  $('logicField').style.display=durVis;   // 로직 템포도 같은 조건 — 추출 틱을 이 템포 기준으로 재환산
 }
+$('logicBpm').onchange=()=>{ state.logicBpm=Math.max(40,Math.min(240,Math.round(+$('logicBpm').value||120))); $('logicBpm').value=state.logicBpm; };
 function durationDriven(){ const g=ME.GENRES[state.genre]||{}; return state.genre==='ambient'||!!g.free; }
 function onDurChange(){
   state.durMin=Math.max(0,Math.min(30,Math.floor(+$('durMin').value||0)));
@@ -1735,6 +1740,12 @@ function autoRemake(){
 function makeMelody(fresh){
   state.bpm=Math.max(40,+$('bpm').value||96);
   if((ME.GENRES[state.genre]||{}).free && state.bpm>50){ state.bpm=50; $('bpm').value=50; }
+  if(durationDriven()){   // 시간 입력값을 생성 시점에 직접 읽는다 — change 이벤트 누락·스테일 값 방지
+    state.durMin=Math.max(0,Math.min(30,Math.floor(+$('durMin').value||0)));
+    state.durSec=Math.max(0,Math.min(59,Math.floor(+$('durSec').value||0)));
+    if(state.durMin*60+state.durSec<30){ state.durMin=0; state.durSec=30; }
+    $('durMin').value=state.durMin; $('durSec').value=state.durSec;
+  }
   if(fresh){ state.seed=Math.floor(Math.random()*99999)+1; }   // 버튼 누를 때마다 새 악상
   let notes=[], meta='';
   try{
@@ -1742,12 +1753,14 @@ function makeMelody(fresh){
       const s=state.single;
       if(!s.chords.length){ return; }
       let genBars=s.bars;
+      let exactBeats=0;
       if(durationDriven()){   // 시간 주도: 마디 UI 구조는 그대로 두고 생성 길이만 시간으로 결정
         const barLenD=ME.METERS[state.meter].barLen;
         const totalSecD=state.durMin*60+state.durSec;
-        genBars=Math.max(1,Math.min(256,Math.round(totalSecD/60*state.bpm/barLenD)));
+        exactBeats=totalSecD/60*state.bpm;   // 자유 장르는 정확한 박 예산으로(반올림 오차 제거)
+        genBars=Math.max(1,Math.min(256,Math.round(exactBeats/barLenD)));
       }
-      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,octave:state.octave,bars:genBars,
+      notes=ME.generate({chords:s.chords,key:state.key,keyMode:state.keyMode,octave:state.octave,bars:genBars,exactBeats:exactBeats,
         profile:ME.SECTION_ROLES[s.role].profile,seed:state.seed,
         meter:state.meter,grouping:state.grouping,genre:state.genre,
         sectionRole:s.role});
@@ -1955,9 +1968,17 @@ function buildMidi(){
     }
     evs.push({tick:Math.round(lastEnd*PPQ)+480,t:0xB0,m:64,v:0});
   }
+  // 시간 주도 장르: 로직 프로젝트 템포 기준으로 틱을 재환산 — 로직에 드롭하면 프로젝트 템포 그대로 정확한 시간이 됨
+  const exportBpm=(durationDriven()&&state.logicBpm>0)?state.logicBpm:state.bpm;
+  const tickScale=exportBpm/state.bpm;
+  if(tickScale!==1) evs.forEach(e=>{ e.tick=Math.round(e.tick*tickScale); });
   evs.sort((a,b)=>a.tick-b.tick||(a.t&0xf0)-(b.t&0xf0));
-  const tr=[];const mpqn=Math.round(60000000/state.bpm);
+  const tr=[];const mpqn=Math.round(60000000/exportBpm);
   pv(tr,0);tr.push(0xFF,0x51,0x03,(mpqn>>16)&255,(mpqn>>8)&255,mpqn&255);
+  // 박자표 메타(FF 58): 프로젝트 기본 4/4 등과 일치하도록 현재 박자표 기록
+  const mparts=state.meter.split('/'), mNum=+mparts[0]||4, mDen=+mparts[1]||4;
+  const mDd=Math.round(Math.log2(mDen));
+  pv(tr,0);tr.push(0xFF,0x58,0x04,mNum,mDd,mDen===8?12:24,8);
   const nm='SUM WAVE Melody';pv(tr,0);tr.push(0xFF,0x03,nm.length);for(const c of nm)tr.push(c.charCodeAt(0));
   let last=0;evs.forEach(e=>{pv(tr,e.tick-last);tr.push(e.t,e.m,e.v);last=e.tick;});
   pv(tr,0);tr.push(0xFF,0x2F,0x00);
@@ -2015,8 +2036,8 @@ function saveFile(bytes,fname,mime){
 }
 $('mClose').onclick=()=>$('saveModal').classList.remove('show');
 $('saveModal').onclick=e=>{if(e.target===$('saveModal'))$('saveModal').classList.remove('show');};
-$('dockMidi').onclick=()=>{if(!state.notes.length){alert('먼저 멜로디를 만들어 주세요');return;}const d=buildMidi();if(d)saveFile(d,`sumwave_melody_${state.key}_${state.seed}.mid`,'audio/midi');};
-$('dockWav').onclick=async()=>{if(!state.notes.length){alert('먼저 멜로디를 만들어 주세요');return;}$('dockWav').textContent='렌더링…';try{const w=await renderWav();saveFile(w,`sumwave_melody_${state.key}_${state.seed}.wav`,'audio/wav');}catch(e){alert('WAV 실패: '+e.message);}$('dockWav').textContent='🔊 WAV';};
+$('dockMidi').onclick=()=>{if(!state.notes.length){alert('먼저 멜로디를 만들어 주세요');return;}makeMelody(false);const d=buildMidi();if(d)saveFile(d,`sumwave_melody_${state.key}_${state.seed}.mid`,'audio/midi');};   // 추출 직전 현재 설정으로 재생성(시드 유지라 동일 악상)
+$('dockWav').onclick=async()=>{if(!state.notes.length){alert('먼저 멜로디를 만들어 주세요');return;}makeMelody(false);$('dockWav').textContent='렌더링…';try{const w=await renderWav();saveFile(w,`sumwave_melody_${state.key}_${state.seed}.wav`,'audio/wav');}catch(e){alert('WAV 실패: '+e.message);}$('dockWav').textContent='🔊 WAV';};
 
 /* ── WAV ── */
 async function renderWav(){
