@@ -2082,23 +2082,51 @@ function buildMidi(){
   const gG=ME.GENRES[state.genre]||{};
   const famX=(gG.free?(state.instFam||'piano'):'piano');
   if(gG.free && famX!=='piano'){
-    // 현·관: 호흡·활 스웰(74→98→78) / 신스: 느린 어택의 깊은 패드 스웰(36→96→70)
-    const sw=famX==='synth'?[36,96,70]:[74,98,78];
-    notes.forEach(n=>{
-      if(n.dur>=2){
-        const t0=Math.round(n.t*PPQ), t1=Math.round((n.t+n.dur*0.45)*PPQ), t2=Math.round((n.t+n.dur*0.92)*PPQ);
-        evs.push({tick:t0,t:0xB0,m:11,v:sw[0]});
-        evs.push({tick:t1,t:0xB0,m:11,v:sw[1]});
-        evs.push({tick:t2,t:0xB0,m:11,v:sw[2]});
-      }
-    });
+    let lastEndB=0; notes.forEach(n=>{ if(n.t+n.dur>lastEndB)lastEndB=n.t+n.dur; });
     if(famX==='synth'){
-      // CC1 슬로우 LFO: 8박 주기 삼각파(45↔85) — 필터·모드 움직임을 미디에 기록
-      let lastEndB=0; notes.forEach(n=>{ if(n.t+n.dur>lastEndB)lastEndB=n.t+n.dur; });
-      for(let tb=0; tb<=lastEndB; tb+=2){
+      // 신스: 패드가 겹쳐 음별 CC11이 충돌하므로 전역 호흡 파형으로 — 16박 주기 코사인(48↔94)
+      for(let tb=0; tb<=lastEndB; tb+=0.5){
+        const ph=(tb%16)/16;
+        const v=Math.round(71+23*Math.cos(2*Math.PI*ph-Math.PI));
+        evs.push({tick:Math.round(tb*PPQ),t:0xB0,m:11,v:v});
+      }
+      // CC1 슬로우 LFO도 매끈한 코사인으로: 8박 주기(45↔85)
+      for(let tb=0; tb<=lastEndB; tb+=0.5){
         const ph=(tb%8)/8;
-        const v=Math.round(45+40*(ph<0.5?ph*2:(1-ph)*2));
+        const v=Math.round(65+20*Math.cos(2*Math.PI*ph-Math.PI));
         evs.push({tick:Math.round(tb*PPQ),t:0xB0,m:1,v:v});
+      }
+    } else {
+      // 현·관: 음마다 코사인 이즈 곡선 스웰 — 어택(→45% 피크)→릴리즈, 0.35박 간격 샘플로 계단 제거
+      const A=74,P=98,R=78;
+      // 곡선은 다음 음의 시작(활 인계·텅잉 지점)에서 끊는다 — 겹침 구간에서 두 곡선이 교차 삽입되며 톱니를 만드는 것 방지
+      const srtC=notes.slice().sort((a,b)=>a.t-b.t||a.midi-b.midi);
+      for(let ci=0;ci<srtC.length;ci++){
+        const n=srtC[ci];
+        if(ci>0 && n.t-srtC[ci-1].t<0.05) continue;   // 더블스톱 아랫성부는 윗성부 곡선을 공유
+        let span=n.dur;
+        for(let cj=ci+1;cj<srtC.length;cj++){ if(srtC[cj].t-n.t>=0.05){ span=Math.min(span, srtC[cj].t-n.t); break; } }
+        if(span>=1.2){
+          const steps=Math.max(6,Math.min(24,Math.round(span*3)));
+          for(let i=0;i<=steps;i++){
+            const ph=i/steps; let v;
+            if(ph<0.45){ const q=ph/0.45; v=A+(P-A)*(0.5-0.5*Math.cos(Math.PI*q)); }
+            else { const q=(ph-0.45)/0.55; v=P+(R-P)*(0.5-0.5*Math.cos(Math.PI*q)); }
+            evs.push({tick:Math.round((n.t+span*ph)*PPQ),t:0xB0,m:11,v:Math.round(v)});
+          }
+        } else {
+          evs.push({tick:Math.round(n.t*PPQ),t:0xB0,m:11,v:80});   // 짧은 음: 값 정체 방지용 단일 점
+        }
+      }
+      // 관악: 프레이즈 사이 숨에서 익스프레션이 함께 잦아듦(호흡 딥)
+      if(famX==='winds'){
+        const srt=notes.slice().sort((a,b)=>a.t-b.t);
+        for(let i=0;i<srt.length-1;i++){
+          const gap=srt[i+1].t-(srt[i].t+srt[i].dur);
+          if(gap>=1.5){
+            evs.push({tick:Math.round((srt[i].t+srt[i].dur+0.15)*PPQ),t:0xB0,m:11,v:56});
+          }
+        }
       }
     }
     // 파일 길이를 목표 시간에 정확히: 종단 CC11 페이드
