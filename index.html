@@ -287,7 +287,6 @@
     </div>
     <div class="transport">
       <button class="tp-btn" id="tpPlay">▶ 재생</button>
-      <button class="tp-btn ghost" id="tpStop">■ 정지</button>
       <button class="tp-btn ghost" id="tpAcc" title="미리듣기 전용 — MIDI/WAV에는 멜로디만 담깁니다">🎹 코드 반주 <b id="tpAccSt">OFF</b></button>
       <div class="seg instseg" id="instSeg">
         <button data-inst="piano" class="on">🎹 피아노</button>
@@ -708,7 +707,7 @@
       var CHARS=[
         {gapM:1.7,  phMax:3, dyad:0.12, roll:0.2,  shim:0.12, len:1.5,  reg:-1, vb:40},
         {gapM:1.0,  phMax:5, dyad:0.2,  roll:0.28, shim:0.16, len:1.15, reg:0,  vb:44},
-        {gapM:1.25, phMax:4, dyad:0.16, roll:0.24, shim:0.4,  len:1.05, reg:3,  vb:42},
+        {gapM:1.25, phMax:4, dyad:0.16, roll:0.24, shim:0.4,  len:1.05, reg:2,  vb:42},
         {gapM:1.45, phMax:3, dyad:0.2,  roll:0.34, shim:0.06, len:1.6,  reg:-4, vb:40},
         {gapM:1.15, phMax:4, dyad:0.35, roll:0.45, shim:0.2,  len:1.25, reg:0,  vb:44}
       ];
@@ -773,9 +772,9 @@
         var chIdx=Math.min(chN-1,Math.floor(posA*chN));
         var drStep=fr(); octDrift += drStep<0.35?-1:drStep<0.65?0:1;   // 작은 무작위 걸음
         // 유랑이 아크를 따라가도록 비례 견인: 정점(62%)에서 높고, 마지막 12%는 가라앉으며 소멸
-        var arcTarget=regBias+(posA>0.88?-4:Math.round(-2+8*arcV));   // 도입 -2 → 정점 +6 → 소멸 -4
+        var arcTarget=regBias+(posA>0.88?-4:Math.round(-2+6*arcV));   // 도입 -2 → 정점 +4 → 소멸 -4 (고역 절제)
         octDrift += Math.max(-2,Math.min(2,Math.round((arcTarget-octDrift)*0.5)));
-        if(octDrift>regBias+8)octDrift=regBias+8; if(octDrift<regBias-8)octDrift=regBias-8;
+        if(octDrift>regBias+5)octDrift=regBias+5; if(octDrift<regBias-8)octDrift=regBias-8;
         // 모티프 진술/변형(55%) 또는 자유 방랑 — 응답이 예약돼 있으면 응답 우선
         var phraseDegs=null;
         if(pendResp || fr()<0.55){
@@ -826,6 +825,7 @@
           prevDeg=dF;
           var pcsF=null;   // 자유 장르는 코드 진행을 따르지 않음(화성 리듬 제거) — 근접 단2도는 grinds가 계속 막음
           var dgF=safe(degF,pcsF);
+          while(dgF>16) dgF-=12;   // 절대 천장(중심+16반음): 유리알 고역 방지 — 옥타브 접기라 조성 보존
           var lastOf=(kF===nF-1);
           // 건반은 짧게 놓고 여운은 페달이 잇는다(실제 주법) — 숨 구간에 자연 소리가 드러남
           var durF=(lastOf ? (2.5+fr()*2.5) : (1.2+fr()*1.6))*lenM*(posA>0.88?1.3:1);   // 소멸부는 길게 늘어짐
@@ -861,7 +861,7 @@
           // 신스: 위 완전5도 스택 20% — 열린 공기감(조성 안·비마찰일 때만)
           if(famF==='synth' && fr()<0.2){
             var up5=melMidi+7;
-            if(inScale(up5-center) && !grinds(up5))
+            if(up5-center<=16 && inScale(up5-center) && !grinds(up5))
               outF.push({t:+(mT+0.05).toFixed(3),dur:+(durF*0.95).toFixed(3),midi:up5,vel:Math.max(26,velF-8),sustain:true});
           }
           // 오른손 다이어드: 멜로디 아래 3도(60%)·6도(40%)를 35% 확률로 — 피아노식 화음
@@ -885,7 +885,7 @@
               outF.push({t:+(mT+0.1).toFixed(3),dur:+(durF*0.9).toFixed(3),midi:center+rB,vel:Math.max(28,velF-12),sustain:true});
           }
           // 정점 뒤 옥타브 위 잔향 흩뿌리기 — 가끔(신비)
-          if(famP && kF===peakAt && fr()<shimP){   // 옥타브 잔향은 피아노 전용
+          if(famP && kF===peakAt && fr()<shimP && dgF+12<=16){   // 옥타브 잔향은 피아노 전용 — 천장 안에서만
             outF.push({t:+(mT+0.28+fr()*0.2).toFixed(3),dur:+(durF*0.8).toFixed(3),midi:center+dgF+12,vel:Math.round(velF*0.55),sustain:true});
           }
           if(!lastOf){
@@ -963,7 +963,7 @@
           if(fr()<0.2 && nW.t>=0.3){
             var gOff=null;
             var tries=[2,-2,1,-1];
-            for(var ti=0;ti<4;ti++){ if(inScale(nW.midi+tries[ti]-center)){ gOff=tries[ti]; break; } }
+            for(var ti=0;ti<4;ti++){ if(inScale(nW.midi+tries[ti]-center) && nW.midi+tries[ti]-center<=16){ gOff=tries[ti]; break; } }
             if(gOff!=null){
               var gT=nW.t-0.18;
               var prevW=outF[wi3-1];
@@ -2047,14 +2047,19 @@ function play(){
   playT0=t0;const total=totalSec();
   const tick=()=>{ if(stopFlag)return;
     const el=audio().currentTime-playT0;
-    if(el>=total){playing=false;drawRoll();$('tpPos').textContent=fmtDur(total);if(typeof updateDockPlay==='function')updateDockPlay();return;}
+    if(el>=total){playing=false;drawRoll();$('tpPos').textContent=fmtDur(total);if(typeof updatePlayBtns==='function')updatePlayBtns();return;}
     if(el>=0){drawRoll(el);$('tpPos').textContent=el.toFixed(1)+'s';}
     rafId=requestAnimationFrame(tick);
   };
   rafId=requestAnimationFrame(tick);
 }
-function stop(){stopFlag=true;playing=false;if(typeof updateDockPlay==='function')setTimeout(updateDockPlay,0);if(rafId)cancelAnimationFrame(rafId);if(actx){try{actx.close();}catch(e){}actx=null;}drawRoll();$('tpPos').textContent='0.0s';}
-$('tpPlay').onclick=()=>{play();if(typeof updateDockPlay==='function')setTimeout(updateDockPlay,0);}; $('tpStop').onclick=stop;
+function stop(){stopFlag=true;playing=false;if(typeof updatePlayBtns==='function')setTimeout(updatePlayBtns,0);if(rafId)cancelAnimationFrame(rafId);if(actx){try{actx.close();}catch(e){}actx=null;}drawRoll();$('tpPos').textContent='0.0s';}
+$('tpPlay').onclick=()=>{ if(playing){ stop(); } else { play(); } setTimeout(updatePlayBtns,0); };
+function updatePlayBtns(){
+  const t=$('tpPlay');
+  if(t){ if(playing){ t.textContent='⏸ 멈춤'; t.classList.add('on'); } else { t.textContent='▶ 재생'; t.classList.remove('on'); } }
+  if(typeof updateDockPlay==='function') updateDockPlay();
+}
 function updateDockPlay(){ const b=$('dockPlay'); if(!b)return;
   if(playing){ b.textContent='■ 정지'; b.classList.add('on'); }
   else { b.textContent='▶ 재생'; b.classList.remove('on'); } }
